@@ -23,9 +23,9 @@ async function retrieveToken(method, client) {
             const githubToken = core.getInput('githubToken', { required: true });
             return await getClientToken(client, method, path, { token: githubToken });
         }
-        case 'gce': {
+        case 'gcp': {
             const role = core.getInput('role', {required: true});
-            const jwt = await getGceJwt(role)
+            const jwt = await getGcpJwt(role)
             return await getClientToken(client, method, path, {jwt: jwt, role: role})
         }
         case 'jwt': {
@@ -62,7 +62,7 @@ async function retrieveToken(method, client) {
     }
 }
 
-async function getGceJwt(role) {
+async function getGcpJwt(role) {
     core.startGroup('GCE Token');
     const defaultOptions = {
         headers: {'Metadata-Flavor': 'Google'},
@@ -70,6 +70,7 @@ async function getGceJwt(role) {
     let client = got.extend(defaultOptions)
     const request = 'http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?audience=' + encodeURIComponent("http://vault/" + role ) + "&format=full"
     core.debug('calling' + request);
+    core.endGroup();
     try {
         const response = await client.get(request);
         if (response && response.body) {
@@ -77,7 +78,6 @@ async function getGceJwt(role) {
         } else {
             throw Error(`Unable to retrieve token service account jwt`);
         }
-        core.endGroup();
     } catch(error) {
         throw Error(error.response.body)
     }
