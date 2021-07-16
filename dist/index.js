@@ -434,7 +434,7 @@ const testParameter = (name, filters) => {
 };
 
 const normalizeDataURL = (urlString, {stripHash}) => {
-	const parts = urlString.match(/^data:(.*?),(.*?)(?:#(.*))?$/);
+	const parts = urlString.match(/^data:([^,]*?),([^#]*?)(?:#(.*))?$/);
 
 	if (!parts) {
 		throw new Error(`Invalid URL: ${urlString}`);
@@ -977,6 +977,7 @@ exports.default = parseBody;
 const core = __webpack_require__(470);
 const rsasign = __webpack_require__(758);
 const fs = __webpack_require__(747);
+const got = __webpack_require__(77).default;
 
 const defaultKubernetesTokenPath = '/var/run/secrets/kubernetes.io/serviceaccount/token'
 /***
@@ -996,6 +997,11 @@ async function retrieveToken(method, client) {
         case 'github': {
             const githubToken = core.getInput('githubToken', { required: true });
             return await getClientToken(client, method, path, { token: githubToken });
+        }
+        case 'gce': {
+            const role = core.getInput('role', {required: true});
+            const jwt = await getGceJwt(role)
+            return await getClientToken(client, method, path, {jwt: jwt, role: role})
         }
         case 'jwt': {
             const role = core.getInput('role', { required: true });
@@ -1031,6 +1037,20 @@ async function retrieveToken(method, client) {
     }
 }
 
+async function getGceJwt(role) {
+    const defaultOptions = {
+        prefixUrl: "http://metadata",
+        headers: {"Metadata-Flavor": "Google"},
+        https: {}
+    }
+    let client = got.extend(defaultOptions)
+    const response = await client.get(`computeMetadata/v1/instance/service-accounts/default/identity?`+ encodeURIComponent("audience=http://vault/" + role) + "&" + encodeURIComponent("format=full"));
+    if (response && response.body) {
+        return response.body
+    } else {
+        throw Error(`Unable to retrieve token service account jwt`);
+    }
+}
 /***
  * Generates signed Json Web Token with specified private key and ttl
  * @param {string} privateKey

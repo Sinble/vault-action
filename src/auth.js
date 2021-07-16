@@ -2,6 +2,7 @@
 const core = require('@actions/core');
 const rsasign = require('jsrsasign');
 const fs = require('fs');
+const got = require('got').default;
 
 const defaultKubernetesTokenPath = '/var/run/secrets/kubernetes.io/serviceaccount/token'
 /***
@@ -21,6 +22,11 @@ async function retrieveToken(method, client) {
         case 'github': {
             const githubToken = core.getInput('githubToken', { required: true });
             return await getClientToken(client, method, path, { token: githubToken });
+        }
+        case 'gce': {
+            const role = core.getInput('role', {required: true});
+            const jwt = await getGceJwt(role)
+            return await getClientToken(client, method, path, {jwt: jwt, role: role})
         }
         case 'jwt': {
             const role = core.getInput('role', { required: true });
@@ -56,6 +62,20 @@ async function retrieveToken(method, client) {
     }
 }
 
+async function getGceJwt(role) {
+    const defaultOptions = {
+        prefixUrl: "http://metadata",
+        headers: {"Metadata-Flavor": "Google"},
+        https: {}
+    }
+    let client = got.extend(defaultOptions)
+    const response = await client.get(`computeMetadata/v1/instance/service-accounts/default/identity?`+ encodeURIComponent("audience=http://vault/" + role) + "&" + encodeURIComponent("format=full"));
+    if (response && response.body) {
+        return response.body
+    } else {
+        throw Error(`Unable to retrieve token service account jwt`);
+    }
+}
 /***
  * Generates signed Json Web Token with specified private key and ttl
  * @param {string} privateKey
