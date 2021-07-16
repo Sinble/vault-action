@@ -68,7 +68,7 @@ async function getGceJwt(role) {
         headers: {"Metadata-Flavor": "Google"},
     }
     let client = got.extend(defaultOptions)
-    const request = 'http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/identity?' + encodeURIComponent("audience=http://vault/" + role + "&" + "format=full")
+    const request = 'http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?audience=' + encodeURIComponent("http://vault/" + role ) + "&format=full"
     core.debug('calling' + request);
     const response = await client.get(request);
     if (response && response.body) {
