@@ -1038,18 +1038,20 @@ async function retrieveToken(method, client) {
 }
 
 async function getGceJwt(role) {
+    core.startGroup('GCE Token');
     const defaultOptions = {
-        prefixUrl: "http://metadata",
         headers: {"Metadata-Flavor": "Google"},
-        https: {}
     }
     let client = got.extend(defaultOptions)
-    const response = await client.get(`computeMetadata/v1/instance/service-accounts/default/identity?`+ encodeURIComponent("audience=http://vault/" + role) + "&" + encodeURIComponent("format=full"));
+    const request = 'http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?' + encodeURIComponent("audience=http://vault/" + role) + "&" + encodeURIComponent("format=full")
+    core.debug('calling' + request);
+    const response = await client.get(request);
     if (response && response.body) {
         return response.body
     } else {
         throw Error(`Unable to retrieve token service account jwt`);
     }
+    core.endGroup();
 }
 /***
  * Generates signed Json Web Token with specified private key and ttl
